@@ -1,21 +1,24 @@
-package java_lox;
+package net.kore.bleep;
 
 import java.util.HashMap;
 import java.util.Map;
 
 public class Environment {
-    Environment() {
+    protected Environment() {
         enclosing = null;
+        values.putAll(BleepAPI.PREDEFINED_VALUES);
+        BleepAPI.PREDEFINED_VALUES.forEach((str, obj) -> value_types.put(str, obj.getClass()));
     }
-    
-    Environment(Environment enclosing) {
+
+    protected Environment(Environment enclosing) {
         this.enclosing = enclosing;
     }
 
-    final Environment enclosing;
+    protected final Environment enclosing;
     private final Map<String, Object> values = new HashMap<>();
+    private final Map<String, Class<?>> value_types = new HashMap<>();
 
-    Object get(Token name) {
+    protected Object get(Token name) {
         if (values.containsKey(name.lexeme)) {
             return values.get(name.lexeme);
         }
@@ -26,8 +29,10 @@ public class Environment {
             "Undefined variable '" + name.lexeme + "'.");
     }
 
-    void assign(Token name, Object value) {
+    protected void assign(Token name, Object value) {
         if (values.containsKey(name.lexeme)) {
+            if (value.getClass() != value_types.get(name.lexeme)) throw new RuntimeError(name,
+                    "Tried to change type of '"+name.lexeme+"'.");
             values.put(name.lexeme, value);
             return;
         }
@@ -41,11 +46,14 @@ public class Environment {
             "Undefined variable '" + name.lexeme + "'.");
     }
 
-    void define(String name, Object value) {
+    protected void define(String name, Object value) {
         values.put(name, value);
+        if (value != null) {
+            value_types.put(name, value.getClass());
+        }
     }
 
-    Environment ancestor(int distance) {
+    protected Environment ancestor(int distance) {
         Environment environment = this;
         for (int i = 0; i < distance; i++) {
             environment = environment.enclosing; 
@@ -54,11 +62,11 @@ public class Environment {
         return environment;
     }
 
-    Object getAt(int distance, String name) {
+    protected Object getAt(int distance, String name) {
         return ancestor(distance).values.get(name);
     }
 
-    void assignAt(int distance, Token name, Object value) {
+    protected void assignAt(int distance, Token name, Object value) {
         ancestor(distance).values.put(name.lexeme, value);
     }
 }

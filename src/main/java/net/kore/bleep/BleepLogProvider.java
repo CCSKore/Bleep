@@ -1,2 +1,7 @@
-package net.kore.bleep;public class BleepLogProvider {
+package net.kore.bleep;
+
+public interface BleepLogProvider {
+    void info(Object info);
+    void warn(Object info);
+    void error(Object info);
 }

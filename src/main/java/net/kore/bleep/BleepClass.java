@@ -1,20 +1,20 @@
-package java_lox;
+package net.kore.bleep;
 
 import java.util.List;
 import java.util.Map;
 
-public class LoxClass implements LoxCallable {
-    final String name;
-    final LoxClass superclass;
-    private final Map<String, LoxFunction> methods;
+public class BleepClass implements BleepCallable {
+    protected final String name;
+    protected final BleepClass superclass;
+    private final Map<String, BleepCallable> methods;
 
-    LoxClass(String name, LoxClass superclass, Map<String, LoxFunction> methods) {
+    public BleepClass(String name, BleepClass superclass, Map<String, BleepCallable> methods) {
         this.superclass = superclass;
         this.name = name;
         this.methods = methods;
     }
 
-    LoxFunction findMethod(String name) {
+    protected BleepCallable findMethod(String name) {
         if (methods.containsKey(name)) {
             return methods.get(name);
         }
@@ -33,19 +33,19 @@ public class LoxClass implements LoxCallable {
 
     @Override
     public Object call(Interpreter interpreter, List<Object> arguments) {
-        LoxInstance instance = new LoxInstance(this);
-        LoxFunction initializer = findMethod("init");
-        if (initializer != null) {
-            initializer.bind(instance).call(interpreter, arguments);
+        BleepInstance instance = new BleepInstance(this);
+        BleepCallable initializer = findMethod("init");
+        if (initializer instanceof BleepFunction bleepFunction) {
+            bleepFunction.bind(instance).call(interpreter, arguments);
         }
 
         return instance;
     }
 
     @Override
-    public int arity() {
-        LoxFunction initializer = findMethod("init");
+    public int arity(List<Object> arguments) {
+        BleepCallable initializer = findMethod("init");
         if (initializer == null) return 0;
-        return initializer.arity();
+        return initializer.arity(arguments);
     }
 }

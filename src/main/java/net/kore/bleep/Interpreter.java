@@ -1,4 +1,4 @@
-package java_lox;
+package net.kore.bleep;
 
 import java.util.List;
 import java.util.ArrayList;
@@ -6,32 +6,42 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
-    final Environment globals = new Environment();
+    protected final Environment globals = new Environment();
     private Environment environment = globals;
     private final Map<Expr, Integer> locals = new HashMap<>();
 
-    Interpreter() {
-        globals.define("clock", new LoxCallable() {
+    private static Interpreter INSTANCE = null;
+    public static Interpreter get() {
+        if (INSTANCE == null) {
+            throw new RuntimeException("Interpreter not started.");
+        }
+        return INSTANCE;
+    }
+
+    protected Interpreter() {
+        INSTANCE = this;
+        globals.define("clock", new BleepCallable() {
             @Override
-            public int arity() { return 0; }
+            public int arity(List<Object> arguments) { return 0; }
     
             @Override
             public Object call(Interpreter interpreter, List<Object> arguments) {
                 return (double)System.currentTimeMillis() / 1000.0;
             }
-    
+
             @Override
             public String toString() { return "<native fn>"; }
         });
+        new LogClass();
     }
 
-    void interpret(List<Stmt> statements) {
+    protected void interpret(List<Stmt> statements) {
         try {
             for (Stmt statement : statements) {
                 execute(statement);
             }
         } catch (RuntimeError error) {
-            Java_Lox.runtimeError(error);
+            Bleep.runtimeError(error);
         }
     }
 
@@ -43,11 +53,11 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         stmt.accept(this);
     }
 
-    void resolve(Expr expr, int depth) {
+    protected void resolve(Expr expr, int depth) {
         locals.put(expr, depth);
     }
 
-    void executeBlock(List<Stmt> statements, Environment environment) {
+    protected void executeBlock(List<Stmt> statements, Environment environment) {
         Environment previous = this.environment;
         try {
             this.environment = environment;
@@ -71,7 +81,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         Object superclass = null;
         if (stmt.superclass != null) {
             superclass = evaluate(stmt.superclass);
-            if (!(superclass instanceof LoxClass)) {
+            if (!(superclass instanceof BleepClass)) {
                 throw new RuntimeError(stmt.superclass.name, "Superclass must be a class.");
             }
         }
@@ -83,14 +93,14 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
             environment.define("super", superclass);
         }
 
-        Map<String, LoxFunction> methods = new HashMap<>();
+        Map<String, BleepCallable> methods = new HashMap<>();
         for (Stmt.Function method : stmt.methods) {
-            LoxFunction function = new LoxFunction(method, environment,
+            BleepFunction function = new BleepFunction(method, environment,
                                                    method.name.lexeme.equals("init"));
             methods.put(method.name.lexeme, function);
         }
 
-        LoxClass klass = new LoxClass(stmt.name.lexeme, (LoxClass)superclass, methods);
+        BleepClass klass = new BleepClass(stmt.name.lexeme, (BleepClass)superclass, methods);
 
         if (superclass != null) {
             environment = environment.enclosing;
@@ -108,7 +118,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
     @Override
     public Void visitFunctionStmt(Stmt.Function stmt) {
-        LoxFunction function = new LoxFunction(stmt, environment, false);
+        BleepFunction function = new BleepFunction(stmt, environment, false);
         environment.define(stmt.name.lexeme, function);
         return null;
     }
@@ -120,13 +130,6 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         } else if (stmt.elseBranch != null) {
             execute(stmt.elseBranch);
         }
-        return null;
-    }
-
-    @Override
-    public Void visitPrintStmt(Stmt.Print stmt) {
-        Object value = evaluate(stmt.expression);
-        System.out.println(stringify(value));
         return null;
     }
 
@@ -225,15 +228,16 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
             arguments.add(evaluate(argument));
         }
 
-        if (!(callee instanceof LoxCallable)) {
+        if (!(callee instanceof BleepCallable function)) {
             throw new RuntimeError(expr.paren, "Can only call functions and classes.");
         }
 
-        LoxCallable function = (LoxCallable)callee;
-        if (arguments.size() != function.arity()) {
-            throw new RuntimeError(expr.paren, "Expected " +
-                function.arity() + " arguments but got " +
-                arguments.size() + ".");
+        if (!function.canHaveInfiniteArgs(arguments)) {
+            if (arguments.size() != function.arity(arguments)) {
+                throw new RuntimeError(expr.paren, "Expected " +
+                        function.arity(arguments) + " arguments but got " +
+                        arguments.size() + ".");
+            }
         }
 
         return function.call(this, arguments);
@@ -242,8 +246,8 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     @Override
     public Object visitGetExpr(Expr.Get expr) {
         Object object = evaluate(expr.object);
-        if (object instanceof LoxInstance) {
-            return ((LoxInstance) object).get(expr.name);
+        if (object instanceof BleepInstance) {
+            return ((BleepInstance) object).get(expr.name);
         }
 
         throw new RuntimeError(expr.name, "Only instances have properties.");
@@ -263,7 +267,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     public Object visitLogicalExpr(Expr.Logical expr) {
         Object left = evaluate(expr.left);
 
-        if (expr.operator.type == Token_Type.OR) {
+        if (expr.operator.type == TokenType.OR) {
             if (isTruthy(left)) return left;
         } else {
             if (!isTruthy(left)) return left;
@@ -276,23 +280,23 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     public Object visitSetExpr(Expr.Set expr) {
         Object object = evaluate(expr.object);
 
-        if (!(object instanceof LoxInstance)) { 
+        if (!(object instanceof BleepInstance)) {
             throw new RuntimeError(expr.name, "Only instances have fields.");
         }
 
         Object value = evaluate(expr.value);
-        ((LoxInstance)object).set(expr.name, value);
+        ((BleepInstance)object).set(expr.name, value);
         return value;
     }
 
     @Override
     public Object visitSuperExpr(Expr.Super expr) {
         int distance = locals.get(expr);
-        LoxClass superclass = (LoxClass)environment.getAt(distance, "super");
+        BleepClass superclass = (BleepClass)environment.getAt(distance, "super");
 
-        LoxInstance object = (LoxInstance)environment.getAt(distance - 1, "this");
+        BleepInstance object = (BleepInstance)environment.getAt(distance - 1, "this");
 
-        LoxFunction method = superclass.findMethod(expr.method.lexeme);
+        BleepCallable method = superclass.findMethod(expr.method.lexeme);
 
         if (method == null) {
             throw new RuntimeError(expr.method, "Undefined property '" + expr.method.lexeme + "'.");

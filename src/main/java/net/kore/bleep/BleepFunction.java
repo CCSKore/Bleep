@@ -1,23 +1,27 @@
-package java_lox;
+package net.kore.bleep;
 
 import java.util.List;
 
-public class LoxFunction implements LoxCallable{
+public class BleepFunction implements BleepCallable {
     private final Stmt.Function declaration;
     private final Environment closure;
+    public Environment getClosure() {
+        return closure;
+    }
 
     private final boolean isInitializer;
 
-    LoxFunction(Stmt.Function declaration, Environment closure, boolean isInitializer) {
+    protected BleepFunction(Stmt.Function declaration, Environment closure, boolean isInitializer) {
         this.isInitializer = isInitializer;
         this.declaration = declaration;
         this.closure = closure;
     }
 
-    LoxFunction bind(LoxInstance instance) {
+    @Override
+    public BleepCallable bind(BleepInstance instance) {
         Environment environment = new Environment(closure);
         environment.define("this", instance);
-        return new LoxFunction(declaration, environment, isInitializer);
+        return new BleepFunction(declaration, environment, isInitializer);
     }
 
     @Override
@@ -26,7 +30,7 @@ public class LoxFunction implements LoxCallable{
     }
 
     @Override
-    public int arity() {
+    public int arity(List<Object> arguments) {
         return declaration.params.size();
     }
 

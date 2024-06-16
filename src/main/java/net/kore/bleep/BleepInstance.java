@@ -1,28 +1,28 @@
-package java_lox;
+package net.kore.bleep;
 
 import java.util.HashMap;
 import java.util.Map;
 
-public class LoxInstance {
-    private LoxClass klass;
+public class BleepInstance {
+    private BleepClass klass;
     private final Map<String, Object> fields = new HashMap<>();
 
-    LoxInstance(LoxClass klass) {
+    protected BleepInstance(BleepClass klass) {
         this.klass = klass;
     }
 
-    Object get(Token name) {
+    protected Object get(Token name) {
         if (fields.containsKey(name.lexeme)) {
             return fields.get(name.lexeme);
         }
 
-        LoxFunction method = klass.findMethod(name.lexeme);
+        BleepCallable method = klass.findMethod(name.lexeme);
         if (method != null) return method.bind(this);
     
         throw new RuntimeError(name, "Undefined property '" + name.lexeme + "'.");
     }
 
-    void set(Token name, Object value) {
+    protected void set(Token name, Object value) {
         fields.put(name.lexeme, value);
     }
 

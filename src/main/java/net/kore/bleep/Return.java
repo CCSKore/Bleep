@@ -1,9 +1,9 @@
-package java_lox;
+package net.kore.bleep;
 
 public class Return extends RuntimeException{
-    final Object value;
+    protected final Object value;
 
-    Return(Object value) {
+    protected Return(Object value) {
         super(null, null, false, false);
         this.value = value;
     }

@@ -1,4 +1,4 @@
-package java_lox;
+package net.kore.bleep;
 
 import java.util.HashMap;
 import java.util.List;
@@ -10,7 +10,7 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     private final Stack<Map<String, Boolean>> scopes = new Stack<>();
     private FunctionType currentFunction = FunctionType.NONE;
 
-    Resolver(Interpreter interpreter) {
+    protected Resolver(Interpreter interpreter) {
         this.interpreter = interpreter;
     }
 
@@ -29,7 +29,7 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     
     private ClassType currentClass = ClassType.NONE;
 
-    void resolve(List<Stmt> statements) {
+    protected void resolve(List<Stmt> statements) {
         for (Stmt statement : statements) {
             resolve(statement);
         }
@@ -62,7 +62,7 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     
         Map<String, Boolean> scope = scopes.peek();
         if (scope.containsKey(name.lexeme)) {
-            Java_Lox.error(name, "Already a variable with this name in this scope.");
+            Bleep.error(name, "Already a variable with this name in this scope.");
         }
 
         scope.put(name.lexeme, false);
@@ -99,7 +99,7 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
         define(stmt.name);
 
         if (stmt.superclass != null && stmt.name.lexeme.equals(stmt.superclass.name.lexeme)) {
-            Java_Lox.error(stmt.superclass.name, "A class can't inherit from itself.");
+            Bleep.error(stmt.superclass.name, "A class can't inherit from itself.");
         }
 
         if (stmt.superclass != null) {
@@ -156,20 +156,14 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     }
 
     @Override
-    public Void visitPrintStmt(Stmt.Print stmt) {
-        resolve(stmt.expression);
-        return null;
-    }
-
-    @Override
     public Void visitReturnStmt(Stmt.Return stmt) {
         if (currentFunction == FunctionType.NONE) {
-            Java_Lox.error(stmt.keyword, "Can't return from top-level code.");
+            Bleep.error(stmt.keyword, "Can't return from top-level code.");
         }
 
         if (stmt.value != null) {
             if (currentFunction == FunctionType.INITIALIZER) {
-                Java_Lox.error(stmt.keyword, "Can't return a value from an initializer.");
+                Bleep.error(stmt.keyword, "Can't return a value from an initializer.");
             }
 
             resolve(stmt.value);
@@ -254,9 +248,9 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     @Override
     public Void visitSuperExpr(Expr.Super expr) {
         if (currentClass == ClassType.NONE) {
-            Java_Lox.error(expr.keyword, "Can't use 'super' outside of a class.");
+            Bleep.error(expr.keyword, "Can't use 'super' outside of a class.");
         } else if (currentClass != ClassType.SUBCLASS) {
-            Java_Lox.error(expr.keyword, "Can't use 'super' in a class with no superclass.");
+            Bleep.error(expr.keyword, "Can't use 'super' in a class with no superclass.");
         }
 
         resolveLocal(expr, expr.keyword);
@@ -266,7 +260,7 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     @Override
     public Void visitThisExpr(Expr.This expr) {
         if (currentClass == ClassType.NONE) {
-            Java_Lox.error(expr.keyword, "Can't use 'this' outside of a class.");
+            Bleep.error(expr.keyword, "Can't use 'this' outside of a class.");
             return null;
         }
 
@@ -284,7 +278,7 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     public Void visitVariableExpr(Expr.Variable expr) {
         if (!scopes.isEmpty() &&
             scopes.peek().get(expr.name.lexeme) == Boolean.FALSE) {
-        Java_Lox.error(expr.name, "Can't read local variable in its own initializer.");
+        Bleep.error(expr.name, "Can't read local variable in its own initializer.");
         }
 
         resolveLocal(expr, expr.name);

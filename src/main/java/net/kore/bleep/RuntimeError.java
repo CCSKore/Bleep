@@ -1,10 +1,15 @@
-package java_lox;
+package net.kore.bleep;
 
 public class RuntimeError extends RuntimeException {
-    final Token token;
+    protected final Token token;
 
-    RuntimeError(Token token, String message) {
+    protected RuntimeError(Token token, String message) {
         super(message);
+        this.token = token;
+    }
+
+    protected RuntimeError(Token token, String message, Throwable cause) {
+        super(message, cause);
         this.token = token;
     }
 }
