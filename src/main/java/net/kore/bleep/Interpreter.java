@@ -1,6 +1,7 @@
 package net.kore.bleep;
 
 import java.util.List;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -33,6 +34,23 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
             public String toString() { return "<native fn>"; }
         });
         new LogClass();
+        globals.define("JVM", new JavaClass());
+        globals.define("import", new BleepCallable() {
+            @Override
+            public int arity(List<Object> arguments) { return 1; }
+    
+            @Override
+            public Object call(Interpreter interpreter, List<Object> arguments) {
+                if (arguments.get(0) instanceof String str) {
+                    return new ExportDataClass(Bleep.run(new File(str))).call(Interpreter.get(), List.of());
+                }
+
+                throw new RuntimeError(null, "Argument must be of type string.");
+            }
+
+            @Override
+            public String toString() { return "<native fn>"; }
+        });
     }
 
     protected void interpret(List<Stmt> statements) {

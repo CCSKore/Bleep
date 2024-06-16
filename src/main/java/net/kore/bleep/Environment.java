@@ -1,6 +1,7 @@
 package net.kore.bleep;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class Environment {
@@ -8,6 +9,7 @@ public class Environment {
         enclosing = null;
         values.putAll(BleepAPI.PREDEFINED_VALUES);
         BleepAPI.PREDEFINED_VALUES.forEach((str, obj) -> value_types.put(str, obj.getClass()));
+        values.put("exports", new ExportsClass().call(Interpreter.get(), List.of()));
     }
 
     protected Environment(Environment enclosing) {
@@ -15,7 +17,7 @@ public class Environment {
     }
 
     protected final Environment enclosing;
-    private final Map<String, Object> values = new HashMap<>();
+    protected final Map<String, Object> values = new HashMap<>();
     private final Map<String, Class<?>> value_types = new HashMap<>();
 
     protected Object get(Token name) {
@@ -27,6 +29,15 @@ public class Environment {
     
         throw new RuntimeError(name,
             "Undefined variable '" + name.lexeme + "'.");
+    }
+
+    protected Map<String, Object> getExports() {
+        if (values.containsKey("exports") && values.get("exports") instanceof BleepInstance instance) {
+            if (instance.klass.getClass().equals(ExportsClass.class)) {
+                return ((ExportsClass) instance.klass).VALUES;
+            }
+        }
+        return new HashMap<>();
     }
 
     protected void assign(Token name, Object value) {

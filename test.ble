@@ -3,7 +3,7 @@ var value = 5;
 info("This is funny!");
 
 // We can also log directly, altho, complex... perhaps a function would work best!
-function jvmLog(str) {
+fun jvmLog(str) {
     JVM.invokeMethod(JVM.getClass("java.io.PrintStream"), JVM.getField(JVM.getClass("java.lang.System"), empty, "out"), "println", str);
 }
 
@@ -23,3 +23,10 @@ info(x); // 4
 
 // Not 3 as that environment in now voided
 info(x); // 4
+
+info(x + value);
+
+info(empty);
+
+var test1Data = import("test1.ble");
+info(test1Data.get("aString")); // This is a string!

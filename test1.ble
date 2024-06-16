@@ -1,0 +1,1 @@
+exports.set("aString", "This is a string!");

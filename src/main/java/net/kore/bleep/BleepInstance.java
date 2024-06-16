@@ -4,7 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class BleepInstance {
-    private BleepClass klass;
+    protected BleepClass klass;
     private final Map<String, Object> fields = new HashMap<>();
 
     protected BleepInstance(BleepClass klass) {

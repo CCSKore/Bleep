@@ -6,7 +6,7 @@ import java.util.Map;
 public class BleepClass implements BleepCallable {
     protected final String name;
     protected final BleepClass superclass;
-    private final Map<String, BleepCallable> methods;
+    protected Map<String, BleepCallable> methods;
 
     public BleepClass(String name, BleepClass superclass, Map<String, BleepCallable> methods) {
         this.superclass = superclass;
