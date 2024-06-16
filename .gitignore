@@ -2,10 +2,12 @@
 out/
 !**/src/main/**/out/
 !**/src/test/**/out/
+
 ###meow! :D###
 .idea/
 .iml
 *.class
+.gradle
 
 ### Eclipse ###
 .apt_generated
