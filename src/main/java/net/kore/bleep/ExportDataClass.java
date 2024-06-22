@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 public class ExportDataClass extends BleepClass {
-    private Map<String, Object> EXPORTED_VALUES;
+    private final Map<String, Object> EXPORTED_VALUES;
 
     public ExportDataClass(Environment previousEnv) {
         super("exports", null, null);

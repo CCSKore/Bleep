@@ -32,6 +32,8 @@ public class Parser {
             if (match(TokenType.CLASS)) return classDeclaration();
             if (match(TokenType.FUN)) return function("function");
             if (match(TokenType.VAR)) return varDeclaration();
+            if (match(TokenType.CONST)) return constDeclaration();
+            if (match(TokenType.FIELD)) return fieldDeclaration();
     
             return statement();
         } catch (ParseError error) {
@@ -42,7 +44,7 @@ public class Parser {
 
     private Stmt classDeclaration() {
         Token name = consume(TokenType.IDENTIFIER, "Expect class name.");
-        
+
         Expr.Variable superclass = null;
         if (match(TokenType.LESS)) {
             consume(TokenType.IDENTIFIER, "Expect superclass name.");
@@ -148,6 +150,30 @@ public class Parser {
     
         consume(TokenType.SEMICOLON, "Expect ';' after variable declaration.");
         return new Stmt.Var(name, initializer);
+    }
+
+    private Stmt constDeclaration() {
+        Token name = consume(TokenType.IDENTIFIER, "Expect constant name.");
+
+        Expr initializer = null;
+        if (match(TokenType.EQUAL)) {
+            initializer = expression();
+        }
+
+        consume(TokenType.SEMICOLON, "Expect ';' after constant declaration.");
+        return new Stmt.Const(name, initializer);
+    }
+
+    private Stmt fieldDeclaration() {
+        Token name = consume(TokenType.IDENTIFIER, "Expect field name.");
+
+        Expr initializer = null;
+        if (match(TokenType.EQUAL)) {
+            initializer = expression();
+        }
+
+        consume(TokenType.SEMICOLON, "Expect ';' after field declaration.");
+        return new Stmt.Field(name, initializer);
     }
 
     private Stmt whileStatement() {

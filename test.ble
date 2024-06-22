@@ -1,4 +1,4 @@
-var value = 5;
+const value = 5;
 
 info("This is funny!");
 
@@ -13,11 +13,11 @@ info(5); // Anything is valid
 
 info(clock());
 
-var x = 4;
+const x = 4;
 info(x); // 4
 
 { // We are in a new environment now
-    var x = 3;
+    const x = 3;
     info(x); // 3
 }
 
@@ -28,5 +28,5 @@ info(x + value);
 
 info(empty);
 
-var test1Data = import("test1.ble");
+const test1Data = import("test1.ble");
 info(test1Data.get("aString")); // This is a string!

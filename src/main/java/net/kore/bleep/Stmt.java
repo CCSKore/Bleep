@@ -11,6 +11,8 @@ public abstract class Stmt {
         R visitIfStmt(If stmt);
         R visitReturnStmt(Return stmt);
         R visitVarStmt(Var stmt);
+        R visitConstStmt(Const stmt);
+        R visitFieldStmt(Field stmt);
         R visitWhileStmt(While stmt);
     }
 
@@ -117,6 +119,36 @@ public abstract class Stmt {
             return visitor.visitVarStmt(this);
         }
     
+        final Token name;
+        final Expr initializer;
+    }
+
+    protected static class Const extends Stmt {
+        Const(Token name, Expr initializer) {
+            this.name = name;
+            this.initializer = initializer;
+        }
+
+        @Override
+        <R> R accept(Visitor<R> visitor) {
+            return visitor.visitConstStmt(this);
+        }
+
+        final Token name;
+        final Expr initializer;
+    }
+
+    protected static class Field extends Stmt {
+        Field(Token name, Expr initializer) {
+            this.name = name;
+            this.initializer = initializer;
+        }
+
+        @Override
+        <R> R accept(Visitor<R> visitor) {
+            return visitor.visitFieldStmt(this);
+        }
+
         final Token name;
         final Expr initializer;
     }

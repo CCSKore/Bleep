@@ -1,5 +1,8 @@
 package net.kore.bleep;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.List;
 import java.io.File;
 import java.util.ArrayList;
@@ -20,7 +23,9 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     }
 
     protected Interpreter() {
-        INSTANCE = this;
+        if (INSTANCE == null) { // We only want access to the first Interpreter
+            INSTANCE = this;
+        }
         globals.define("clock", new BleepCallable() {
             @Override
             public int arity(List<Object> arguments) { return 0; }
@@ -33,8 +38,8 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
             @Override
             public String toString() { return "<native fn>"; }
         });
-        new LogClass();
-        globals.define("JVM", new JavaClass());
+        new Log();
+        globals.define("JVM", new JavaClass().call(this, List.of()));
         globals.define("import", new BleepCallable() {
             @Override
             public int arity(List<Object> arguments) { return 1; }
@@ -42,7 +47,9 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
             @Override
             public Object call(Interpreter interpreter, List<Object> arguments) {
                 if (arguments.get(0) instanceof String str) {
-                    return new ExportDataClass(Bleep.run(new File(str))).call(Interpreter.get(), List.of());
+                    Interpreter interpreter1 = new Interpreter();
+                    Environment env = Bleep.run(new File(str), interpreter1);
+                    return new ExportDataClass(env).call(Interpreter.get(), List.of());
                 }
 
                 throw new RuntimeError(null, "Argument must be of type string.");
@@ -99,8 +106,16 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         Object superclass = null;
         if (stmt.superclass != null) {
             superclass = evaluate(stmt.superclass);
-            if (!(superclass instanceof BleepClass)) {
+            /*if (!(superclass instanceof BleepClass bleepClass)) {
                 throw new RuntimeError(stmt.superclass.name, "Superclass must be a class.");
+            }*/
+            if (superclass instanceof Class<?> clazz) {
+                try {
+                    superclass = clazz.getConstructor().newInstance();
+                } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
+                         NoSuchMethodException e) {
+                    throw new RuntimeError(stmt.name, "Could not get instance of super class", e);
+                }
             }
         }
 
@@ -118,7 +133,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
             methods.put(method.name.lexeme, function);
         }
 
-        BleepClass klass = new BleepClass(stmt.name.lexeme, (BleepClass)superclass, methods);
+        BleepClass klass = new BleepClass(stmt.name.lexeme, superclass, methods);
 
         if (superclass != null) {
             environment = environment.enclosing;
@@ -166,7 +181,29 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
             value = evaluate(stmt.initializer);
         }
 
-        environment.define(stmt.name.lexeme, value);
+        environment.define(stmt.name.lexeme, value, true, true);
+        return null;
+    }
+
+    @Override
+    public Void visitConstStmt(Stmt.Const stmt) {
+        Object value = null;
+        if (stmt.initializer != null) {
+            value = evaluate(stmt.initializer);
+        }
+
+        environment.define(stmt.name.lexeme, value, false, true);
+        return null;
+    }
+
+    @Override
+    public Void visitFieldStmt(Stmt.Field stmt) {
+        Object value = null;
+        if (stmt.initializer != null) {
+            value = evaluate(stmt.initializer);
+        }
+
+        environment.define(stmt.name.lexeme, value, false, false);
         return null;
     }
 
@@ -213,25 +250,48 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
                 checkNumberOperands(expr.operator, left, right);
                 return (double)left <= (double)right;
             case MINUS:
-                checkNumberOperands(expr.operator, left, right);
-                return (double)left - (double)right;
+                if (left instanceof Double && right instanceof Double) {
+                    return (double)left - (double)right;
+                }
+
+                if (left instanceof String stringL && right instanceof String stringR) {
+                    return stringL.replace(stringR, "");
+                }
+
+                throw new RuntimeError(expr.operator,
+                        "Operands must be two numbers or two strings.");
             case PLUS:
                 if (left instanceof Double && right instanceof Double) {
-                  return (double)left + (double)right;
-                } 
-        
-                if (left instanceof String && right instanceof String) {
-                  return (String)left + (String)right;
+                    return (double)left + (double)right;
                 }
-        
-                throw new RuntimeError(expr.operator,
-                "Operands must be two numbers or two strings.");
+
+                return left.toString() + right.toString();
             case SLASH:
-                checkNumberOperands(expr.operator, left, right);
-                return (double)left / (double)right;
+                if (left instanceof Double && right instanceof Double) {
+                    return (double)left / (double)right;
+                }
+
+                if (left instanceof String stringL && right instanceof String stringR) {
+                    return stringL.split(stringR).length - 1;
+                }
+
+                throw new RuntimeError(expr.operator,
+                        "Operands must be two numbers or two strings.");
             case STAR:
-                checkNumberOperands(expr.operator, left, right);
-                return (double)left * (double)right;
+                if (left instanceof Double && right instanceof Double) {
+                    return (double)left * (double)right;
+                }
+
+                if (left instanceof String stringL && right instanceof Double doubleR) {
+                    return stringL.repeat(doubleR.intValue());
+                }
+
+                if (left instanceof Double doubleL && right instanceof String stringR) {
+                    return stringR.repeat(doubleL.intValue());
+                }
+
+                throw new RuntimeError(expr.operator,
+                        "Operands must be two numbers or two strings.");
         }
 
         return null;
@@ -246,19 +306,29 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
             arguments.add(evaluate(argument));
         }
 
-        if (!(callee instanceof BleepCallable function)) {
-            throw new RuntimeError(expr.paren, "Can only call functions and classes.");
-        }
+        if (callee instanceof BleepCallable function) {
+            if (!function.canHaveInfiniteArgs(arguments)) {
+                if (arguments.size() != function.arity(arguments)) {
+                    throw new RuntimeError(expr.paren, "Expected " +
+                            function.arity(arguments) + " arguments but got " +
+                            arguments.size() + ".");
+                }
+            }
 
-        if (!function.canHaveInfiniteArgs(arguments)) {
-            if (arguments.size() != function.arity(arguments)) {
-                throw new RuntimeError(expr.paren, "Expected " +
-                        function.arity(arguments) + " arguments but got " +
-                        arguments.size() + ".");
+            return function.call(this, arguments);
+        } else {
+            if (callee instanceof Class<?> clazz) {
+                List<Class<?>> clazzes = new ArrayList<>();
+                arguments.forEach(obj -> clazzes.add(obj.getClass()));
+                try {
+                    return clazz.getConstructor(clazzes.toArray(new Class[]{})).newInstance(arguments.toArray());
+                } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
+                         NoSuchMethodException e) {
+                    throw new RuntimeError(expr.paren, "Unable to create new JVM class instance", e);
+                }
             }
         }
-
-        return function.call(this, arguments);
+        throw new RuntimeError(expr.paren, "Unable to execute call.");
     }
 
     @Override
@@ -268,7 +338,48 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
             return ((BleepInstance) object).get(expr.name);
         }
 
-        throw new RuntimeError(expr.name, "Only instances have properties.");
+        try {
+            Class<?> clazz = object.getClass();
+            if (expr.name.lexeme.equals("class")) {
+                return clazz;
+            }
+            for (Field field : clazz.getFields()) {
+                if (expr.name.lexeme.equals(field.getName())) {
+                    return field.get(object);
+                }
+            }
+
+            for (Method method : clazz.getMethods()) {
+                if (expr.name.lexeme.equals(method.getName())) {
+                    return new BleepCallable() {
+                        @Override
+                        public boolean canHaveInfiniteArgs(List<Object> arguments) {
+                            return true;
+                        }
+
+                        @Override
+                        public int arity(List<Object> arguments) {
+                            return 0;
+                        }
+
+                        @Override
+                        public Object call(Interpreter interpreter, List<Object> arguments) {
+                            try {
+                                List<Class<?>> clazzes = new ArrayList<>();
+                                arguments.forEach(obj -> clazzes.add(obj.getClass()));
+                                return clazz.getMethod(expr.name.lexeme, clazzes.toArray(new Class[]{})).invoke(object, arguments.toArray());
+                            } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+                                throw new RuntimeError(expr.name, "Unable to execute JVM method", e);
+                            }
+                        }
+                    };
+                }
+            }
+        } catch (Exception e) {
+            throw new RuntimeError(expr.name, "Unable to get JVM field or method", e);
+        }
+
+        throw new RuntimeError(expr.name, "Only instances or native JVM classes have properties. Perhaps that was not a public JVM field or method?");
     }
 
     @Override
@@ -310,11 +421,37 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     @Override
     public Object visitSuperExpr(Expr.Super expr) {
         int distance = locals.get(expr);
-        BleepClass superclass = (BleepClass)environment.getAt(distance, "super");
+        Object superclass = environment.getAt(distance, "super");
 
         BleepInstance object = (BleepInstance)environment.getAt(distance - 1, "this");
 
-        BleepCallable method = superclass.findMethod(expr.method.lexeme);
+        BleepCallable method;
+        if (superclass instanceof BleepClass bleepClass) {
+            method = bleepClass.findMethod(expr.method.lexeme);
+        } else {
+            method = new BleepCallable() {
+                @Override
+                public boolean canHaveInfiniteArgs(List<Object> arguments) {
+                    return true;
+                }
+
+                @Override
+                public int arity(List<Object> arguments) {
+                    return 0;
+                }
+
+                @Override
+                public Object call(Interpreter interpreter, List<Object> arguments) {
+                    List<Class<?>> clazzes = new ArrayList<>();
+                    arguments.forEach(obj -> clazzes.add(obj.getClass()));
+                    try {
+                        return superclass.getClass().getMethod(expr.method.lexeme, clazzes.toArray(new Class[]{})).invoke(superclass, arguments.toArray());
+                    } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+                        throw new RuntimeError(expr.method, "Unable to call JVM method", e);
+                    }
+                }
+            };
+        }
 
         if (method == null) {
             throw new RuntimeError(expr.method, "Undefined property '" + expr.method.lexeme + "'.");
@@ -332,15 +469,15 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     public Object visitUnaryExpr(Expr.Unary expr) {
         Object right = evaluate(expr.right);
 
-        switch (expr.operator.type) {
-            case BANG:
-                return !isTruthy(right);
-            case MINUS:
+        return switch (expr.operator.type) {
+            case BANG -> !isTruthy(right);
+            case MINUS -> {
                 checkNumberOperand(expr.operator, right);
-                return -(double)right;
-        }
+                yield -(double) right;
+            }
+            default -> null;
+        };
 
-        return null;
     }
 
     @Override

@@ -13,6 +13,6 @@ public class DefaultLogProvider implements BleepLogProvider {
 
     @Override
     public void error(Object info) {
-        System.out.println("[Error] "+info);
+        System.err.println("[Error] "+info);
     }
 }

@@ -31,6 +31,8 @@ public class Scanner {
         keywords.put("this",   THIS);
         keywords.put("true",   TRUE);
         keywords.put("var",    VAR);
+        keywords.put("const",  CONST);
+        keywords.put("field",  FIELD);
         keywords.put("while",  WHILE);
       }
 
@@ -87,7 +89,7 @@ public class Scanner {
 
             case '\n': line++; break;
 
-            case '\'': string(); break;
+            case '\"': string(); break;
             
             default:
                 if (isDigit(c)) {number();}

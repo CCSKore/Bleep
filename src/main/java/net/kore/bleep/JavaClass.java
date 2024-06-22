@@ -40,7 +40,7 @@ public class JavaClass extends BleepClass {
         });
         methods.put("getInstance", new BleepCallable() {
             @Override
-            public boolean canHaveInfiniteArgs() {
+            public boolean canHaveInfiniteArgs(List<Object> arguments) {
                 return true;
             }
 
@@ -79,7 +79,7 @@ public class JavaClass extends BleepClass {
         });
         methods.put("invokeMethod", new BleepCallable() {
             @Override
-            public boolean canHaveInfiniteArgs() {
+            public boolean canHaveInfiniteArgs(List<Object> arguments) {
                 return true;
             }
 

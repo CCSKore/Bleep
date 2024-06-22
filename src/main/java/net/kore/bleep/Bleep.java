@@ -5,10 +5,8 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.util.List;
-import java.util.Map;
 
 public class Bleep {
-    private static final Interpreter interpreter = new Interpreter();
     protected static boolean hadError = false;
     protected static boolean hadRuntimeError = false;
 
@@ -20,7 +18,19 @@ public class Bleep {
         }
     }
 
+    public static Environment run(File source, Interpreter interpreter) {
+        try {
+            return run(Files.readString(source.toPath(), Charset.defaultCharset()), interpreter);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public static Environment run(String source) {
+        return run(source, new Interpreter());
+    }
+
+    public static Environment run(String source, Interpreter interpreter) {
         Scanner scanner = new Scanner(source);
 
         List<Token> tokens = scanner.scanTokens();

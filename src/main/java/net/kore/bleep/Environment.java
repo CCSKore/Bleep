@@ -19,6 +19,8 @@ public class Environment {
     protected final Environment enclosing;
     protected final Map<String, Object> values = new HashMap<>();
     private final Map<String, Class<?>> value_types = new HashMap<>();
+    private final Map<String, Boolean> value_type_changes = new HashMap<>();
+    private final Map<String, Boolean> value_changes = new HashMap<>();
 
     protected Object get(Token name) {
         if (values.containsKey(name.lexeme)) {
@@ -41,9 +43,17 @@ public class Environment {
     }
 
     protected void assign(Token name, Object value) {
+        if (value_changes.containsKey(name.lexeme)) {
+            if (value_changes.get(name.lexeme)) throw new RuntimeError(name, "Cannot redefine a field.");
+        }
         if (values.containsKey(name.lexeme)) {
-            if (value.getClass() != value_types.get(name.lexeme)) throw new RuntimeError(name,
-                    "Tried to change type of '"+name.lexeme+"'.");
+            if (value_types.containsKey(name.lexeme)) {
+                Class<?> type = value_types.get(name.lexeme);
+                if (type != null && !value_type_changes.get(name.lexeme)) {
+                    if (value.getClass() != value_types.get(name.lexeme)) throw new RuntimeError(name,
+                            "Tried to change type of '"+name.lexeme+"'.");
+                }
+            }
             values.put(name.lexeme, value);
             return;
         }
@@ -58,9 +68,19 @@ public class Environment {
     }
 
     protected void define(String name, Object value) {
+        define(name, value, true, true);
+    }
+
+    protected void define(String name, Object value, boolean typeChange, boolean change) {
         values.put(name, value);
+        value_type_changes.put(name, typeChange);
+        value_changes.put(name, change);
         if (value != null) {
-            value_types.put(name, value.getClass());
+            if (typeChange) {
+                value_types.put(name, null);
+            } else {
+                value_types.put(name, value.getClass());
+            }
         }
     }
 
