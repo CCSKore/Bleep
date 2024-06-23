@@ -2,31 +2,39 @@ const value = 5;
 
 info("This is funny!");
 
-// We can also log directly, altho, complex... perhaps a function would work best!
+# We can also log directly, altho, complex... perhaps a function would work best!
 fun jvmLog(str) {
     JVM.invokeMethod(JVM.getClass("java.io.PrintStream"), JVM.getField(JVM.getClass("java.lang.System"), empty, "out"), "println", str);
 }
 
 jvmLog("JVM logging, this would bypass the `BleepLogProvider`, it's best to use info!");
 
-info(5); // Anything is valid
+info(5); # Anything is valid
 
 info(clock());
 
 const x = 4;
-info(x); // 4
+info(x); # 4
 
-{ // We are in a new environment now
+{ # We are in a new environment now
     const x = 3;
-    info(x); // 3
+    info(x); # 3
 }
 
-// Not 3 as that environment in now voided
-info(x); // 4
+# Not 3 as that environment in now voided
+info(x); # 4
 
 info(x + value);
+
+repeat (2) {
+    info("womp womp");
+}
 
 info(empty);
 
 const test1Data = import("test1.ble");
-info(test1Data.get("aString")); // This is a string!
+info(test1Data.get("aString")); # This is a string!
+
+repeat (empty) {
+    info('womp womp');
+}

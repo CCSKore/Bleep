@@ -14,7 +14,7 @@ public enum TokenType {
     VAR, CONST, FIELD,
 
     AND, CLASS, ELSE, FALSE, FUN, FOR, IF, EMPTY, OR,
-    RETURN, SUPER, THIS, TRUE, WHILE,
+    RETURN, SUPER, THIS, TRUE, WHILE, REPEAT,
 
     EOF
 }

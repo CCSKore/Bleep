@@ -50,7 +50,7 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     }
 
     private void beginScope() {
-        scopes.push(new HashMap<String, Boolean>());
+        scopes.push(new HashMap<>());
     }
 
     private void endScope() {
@@ -183,8 +183,34 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     }
 
     @Override
+    public Void visitConstStmt(Stmt.Const stmt) {
+        declare(stmt.name);
+        if (stmt.initializer != null) {
+            resolve(stmt.initializer);
+        }
+        define(stmt.name);
+        return null;
+    }
+
+    @Override
+    public Void visitFieldStmt(Stmt.Field stmt) {
+        declare(stmt.name);
+        if (stmt.initializer != null) {
+            resolve(stmt.initializer);
+        }
+        define(stmt.name);
+        return null;
+    }
+
+    @Override
     public Void visitWhileStmt(Stmt.While stmt) {
         resolve(stmt.condition);
+        resolve(stmt.body);
+        return null;
+    }
+
+    @Override
+    public Void visitRepeatStmt(Stmt.Repeat stmt) {
         resolve(stmt.body);
         return null;
     }

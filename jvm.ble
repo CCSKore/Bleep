@@ -1,0 +1,7 @@
+const list = List();
+list.add('test');
+
+const value = "This is a %s".formatted(list.toArray());
+info(value);
+const jvmObj = JVMObject().toString();
+info(jvmObj);

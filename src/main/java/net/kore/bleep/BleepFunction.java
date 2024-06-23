@@ -18,7 +18,7 @@ public class BleepFunction implements BleepCallable {
     }
 
     @Override
-    public BleepCallable bind(BleepInstance instance) {
+    public BleepCallable bind(BleepInstance instance, Interpreter interpreter) {
         Environment environment = new Environment(closure);
         environment.define("this", instance);
         return new BleepFunction(declaration, environment, isInitializer);

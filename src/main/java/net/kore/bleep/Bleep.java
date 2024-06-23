@@ -3,12 +3,14 @@ package net.kore.bleep;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.List;
 
 public class Bleep {
     protected static boolean hadError = false;
     protected static boolean hadRuntimeError = false;
+    protected static Parser parser = null;
 
     public static Environment run(File source) {
         try {
@@ -31,6 +33,8 @@ public class Bleep {
     }
 
     public static Environment run(String source, Interpreter interpreter) {
+        Interpreter.canReplace = false;
+        Interpreter.INSTANCE = interpreter;
         Scanner scanner = new Scanner(source);
 
         List<Token> tokens = scanner.scanTokens();
@@ -44,7 +48,10 @@ public class Bleep {
 
         if (hadError) return null;
 
+        Parser previousParser = Bleep.parser;
+        Bleep.parser = parser;
         interpreter.interpret(statements);
+        Bleep.parser = previousParser;
         return interpreter.globals;
     }
 
@@ -53,7 +60,7 @@ public class Bleep {
     }
 
     private static void report(int line, String where, String message) {
-        System.err.println("[line " + line + "] Error" + where + ": " + message);
+        System.err.println("[Line " + line + "] Error" + where + ": " + message);
         hadError = true;
     }
 
@@ -63,8 +70,13 @@ public class Bleep {
     }
 
     protected static void runtimeError(RuntimeError error) {
-        System.err.println(error.getMessage() +
-            "\n[line " + error.token.line + "]");
+        if (error.token != null) {
+            BleepAPI.logProvider.raw(Colors.TEXT_BRIGHT_RED + "[Line " + error.token.line + "] " +
+                    error.getMessage() + Colors.TEXT_RESET);
+        } else {
+            BleepAPI.logProvider.raw(Colors.TEXT_BRIGHT_RED + "[Line " + parser.maybeErrorPoint.line + "] " +
+                    error.getMessage() + Colors.TEXT_RESET);
+        }
         hadRuntimeError = true;
     }
 }

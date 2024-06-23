@@ -1,5 +1,7 @@
 package net.kore.bleep;
 
+import com.vdurmont.emoji.EmojiManager;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -34,6 +36,7 @@ public class Scanner {
         keywords.put("const",  CONST);
         keywords.put("field",  FIELD);
         keywords.put("while",  WHILE);
+        keywords.put("repeat",  REPEAT);
       }
 
     protected Scanner(String source) {
@@ -80,8 +83,10 @@ public class Scanner {
                 addToken(match('=') ? TokenType.GREATER_EQUAL : TokenType.GREATER);
                 break;
             case '/':
-                if (match('/')) {while (peek() != '\n' && !isAtEnd()) advance();}
-                else {addToken(TokenType.SLASH);}
+                addToken(TokenType.SLASH);
+                break;
+            case '#':
+                while (peek() != '\n' && !isAtEnd()) advance();
                 break;
             case ' ':
             case '\r':
@@ -89,13 +94,13 @@ public class Scanner {
 
             case '\n': line++; break;
 
-            case '\"': string(); break;
+            case '\"': string(true); break;
+            case '\'': string(false); break;
             
             default:
                 if (isDigit(c)) {number();}
                 else if (isAlpha(c)) {identifier();}
-                else {
-                    Bleep.error(line, "Unexpected character.");}
+                else {Bleep.error(line, "Unexpected character.");}
                 break;
             }
     }
@@ -131,8 +136,8 @@ public class Scanner {
         return source.charAt(current + 1);
     }
 
-    private void string() {
-        while (peek() != '\'' && !isAtEnd()) {
+    private void string(boolean doubleQuotes) {
+        while ((doubleQuotes ? peek() != '\"' : peek() != '\'') && !isAtEnd()) {
             if (peek() == '\n') line++;
             advance();
         }

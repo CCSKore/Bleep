@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class JavaClass extends BleepClass {
     public JavaClass() {
@@ -101,7 +102,7 @@ public class JavaClass extends BleepClass {
                             for (Object arg : args) {
                                 if (method.getParameterTypes()[args.indexOf(arg)].equals(arg.getClass())) {
                                     try {
-                                        method.invoke(arg1, args.toArray());
+                                        return method.invoke(arg2, args.toArray());
                                     } catch (IllegalAccessException | InvocationTargetException e) {
                                         throw new RuntimeError(null, "Exception while invoking JVM method.", e);
                                     }
@@ -112,6 +113,8 @@ public class JavaClass extends BleepClass {
                 } else {
                     throw new RuntimeError(null, "First arg is not a class or the third arg is not a string!");
                 }
+
+                BleepAPI.logProvider.info(String.join(" ", arguments.stream().map(Object::toString).collect(Collectors.toUnmodifiableList())));
 
                 throw new RuntimeError(null, "Unable to invoke JVM method.");
             }
@@ -145,6 +148,30 @@ public class JavaClass extends BleepClass {
                 }
 
                 throw new RuntimeError(null, "Unable to get JVM field.");
+            }
+
+            @Override
+            public String toString() { return "<native fn>"; }
+        });
+        methods.put("importClass", new BleepCallable() {
+            @Override
+            public int arity(List<Object> arguments) {
+                return 1;
+            }
+
+            @Override
+            public Object call(Interpreter interpreter, List<Object> arguments) {
+                Object arg1 = arguments.get(0);
+                if (arg1 instanceof String str) {
+                    try {
+                        String[] packagePath = str.split("\\.");
+                        Class<?> clazz = Class.forName(str);
+                        interpreter.globals.define(packagePath[packagePath.length - 1], clazz, false, false, null);
+                    } catch (ClassNotFoundException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+                return null;
             }
 
             @Override

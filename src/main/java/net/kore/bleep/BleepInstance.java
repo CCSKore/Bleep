@@ -6,9 +6,11 @@ import java.util.Map;
 public class BleepInstance {
     protected BleepClass klass;
     private final Map<String, Object> fields = new HashMap<>();
+    private final Interpreter interpreter;
 
-    protected BleepInstance(BleepClass klass) {
+    protected BleepInstance(BleepClass klass, Interpreter interpreter) {
         this.klass = klass;
+        this.interpreter = interpreter;
     }
 
     protected Object get(Token name) {
@@ -17,7 +19,7 @@ public class BleepInstance {
         }
 
         BleepCallable method = klass.findMethod(name.lexeme);
-        if (method != null) return method.bind(this);
+        if (method != null) return method.bind(this, interpreter);
     
         throw new RuntimeError(name, "Undefined property '" + name.lexeme + "'.");
     }

@@ -14,6 +14,7 @@ public abstract class Stmt {
         R visitConstStmt(Const stmt);
         R visitFieldStmt(Field stmt);
         R visitWhileStmt(While stmt);
+        R visitRepeatStmt(Repeat stmt);
     }
 
     protected static class Block extends Stmt {
@@ -166,6 +167,23 @@ public abstract class Stmt {
     
         final Expr condition;
         final Stmt body;
+    }
+
+    protected static class Repeat extends Stmt {
+        Repeat(Expr count, Stmt body, int line) {
+            this.count = count;
+            this.body = body;
+            this.line = line;
+        }
+
+        @Override
+        <R> R accept(Visitor<R> visitor) {
+            return visitor.visitRepeatStmt(this);
+        }
+
+        final Expr count;
+        final Stmt body;
+        final int line;
     }
 
     abstract <R> R accept(Visitor<R> visitor);

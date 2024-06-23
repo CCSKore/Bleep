@@ -10,11 +10,12 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
-    protected final Environment globals = new Environment();
-    private Environment environment = globals;
+    protected final Environment globals;
+    private Environment environment;
     private final Map<Expr, Integer> locals = new HashMap<>();
 
-    private static Interpreter INSTANCE = null;
+    protected static Interpreter INSTANCE = null;
+    protected static boolean canReplace = true;
     public static Interpreter get() {
         if (INSTANCE == null) {
             throw new RuntimeException("Interpreter not started.");
@@ -23,9 +24,12 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     }
 
     protected Interpreter() {
-        if (INSTANCE == null) { // We only want access to the first Interpreter
+        if (canReplace) { // We only want access to the first Interpreter
+            canReplace = false;
             INSTANCE = this;
         }
+        globals = new Environment();
+        environment = globals;
         globals.define("clock", new BleepCallable() {
             @Override
             public int arity(List<Object> arguments) { return 0; }
@@ -37,9 +41,9 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
             @Override
             public String toString() { return "<native fn>"; }
-        });
-        new Log();
-        globals.define("JVM", new JavaClass().call(this, List.of()));
+        }, false, false, null);
+        new Log(this);
+        globals.define("JVM", new JavaClass().call(this, List.of()), false, false, null);
         globals.define("import", new BleepCallable() {
             @Override
             public int arity(List<Object> arguments) { return 1; }
@@ -49,7 +53,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
                 if (arguments.get(0) instanceof String str) {
                     Interpreter interpreter1 = new Interpreter();
                     Environment env = Bleep.run(new File(str), interpreter1);
-                    return new ExportDataClass(env).call(Interpreter.get(), List.of());
+                    return new ExportDataClass(env).call(interpreter, List.of());
                 }
 
                 throw new RuntimeError(null, "Argument must be of type string.");
@@ -57,7 +61,28 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
             @Override
             public String toString() { return "<native fn>"; }
-        });
+        }, false, false, null);
+        globals.define("List", new BleepCallable() {
+            @Override
+            public boolean canHaveInfiniteArgs(List<Object> arguments) {
+                return true;
+            }
+
+            @Override
+            public int arity(List<Object> arguments) {
+                return 0;
+            }
+
+            @Override
+            public Object call(Interpreter interpreter, List<Object> arguments) {
+                return new ArrayList<>(arguments);
+            }
+
+            @Override
+            public String toString() { return "<native fn>"; }
+        }, false, false, null);
+        globals.define("String", String.class, false, false, null);
+        globals.define("JVMObject", Object.class, false, false, null);
     }
 
     protected void interpret(List<Stmt> statements) {
@@ -181,7 +206,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
             value = evaluate(stmt.initializer);
         }
 
-        environment.define(stmt.name.lexeme, value, true, true);
+        environment.define(stmt.name.lexeme, value, true, true, stmt.name);
         return null;
     }
 
@@ -192,7 +217,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
             value = evaluate(stmt.initializer);
         }
 
-        environment.define(stmt.name.lexeme, value, false, true);
+        environment.define(stmt.name.lexeme, value, false, true, stmt.name);
         return null;
     }
 
@@ -203,7 +228,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
             value = evaluate(stmt.initializer);
         }
 
-        environment.define(stmt.name.lexeme, value, false, false);
+        environment.define(stmt.name.lexeme, value, false, false, stmt.name);
         return null;
     }
 
@@ -211,6 +236,21 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     public Void visitWhileStmt(Stmt.While stmt) {
         while (isTruthy(evaluate(stmt.condition))) {
             execute(stmt.body);
+        }
+        return null;
+    }
+
+    @Override
+    public Void visitRepeatStmt(Stmt.Repeat stmt) {
+        Object count = evaluate(stmt.count);
+        if (count == null) {
+            execute(stmt.body);
+        } else if (count instanceof Double d) {
+            for (int i = 0; i < d; ++i) {
+                execute(stmt.body);
+            }
+        } else {
+            throw new RuntimeError(stmt.line, "Number required as input to repeat");
         }
         return null;
     }
@@ -339,18 +379,27 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         }
 
         try {
-            Class<?> clazz = object.getClass();
+            Class<?> clazz;
+            boolean stat = false;
+            if (object instanceof Class<?> c) {
+                clazz = c;
+                stat = true;
+            } else {
+                clazz = object.getClass();
+            }
             if (expr.name.lexeme.equals("class")) {
                 return clazz;
             }
             for (Field field : clazz.getFields()) {
                 if (expr.name.lexeme.equals(field.getName())) {
+                    if (stat) return field.get(null);
                     return field.get(object);
                 }
             }
 
             for (Method method : clazz.getMethods()) {
                 if (expr.name.lexeme.equals(method.getName())) {
+                    boolean finalStat = stat;
                     return new BleepCallable() {
                         @Override
                         public boolean canHaveInfiniteArgs(List<Object> arguments) {
@@ -367,9 +416,15 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
                             try {
                                 List<Class<?>> clazzes = new ArrayList<>();
                                 arguments.forEach(obj -> clazzes.add(obj.getClass()));
-                                return clazz.getMethod(expr.name.lexeme, clazzes.toArray(new Class[]{})).invoke(object, arguments.toArray());
+                                return clazz.getMethod(expr.name.lexeme, clazzes.toArray(new Class[]{})).invoke(finalStat ? null : object, arguments.toArray());
                             } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-                                throw new RuntimeError(expr.name, "Unable to execute JVM method", e);
+                                try {
+                                    List<Class<?>> clazzes = new ArrayList<>();
+                                    arguments.forEach(obj -> clazzes.add(Object.class));
+                                    return clazz.getMethod(expr.name.lexeme, clazzes.toArray(new Class[]{})).invoke(finalStat ? null : object, arguments.toArray());
+                                } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException ex) {
+                                    throw new RuntimeError(expr.name, "Unable to execute JVM method", ex);
+                                }
                             }
                         }
                     };
@@ -457,7 +512,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
             throw new RuntimeError(expr.method, "Undefined property '" + expr.method.lexeme + "'.");
         }
 
-        return method.bind(object);
+        return method.bind(object, this);
     }
 
     @Override

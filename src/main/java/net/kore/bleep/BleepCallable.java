@@ -9,8 +9,8 @@ public interface BleepCallable {
 
     int arity(List<Object> arguments);
     Object call(Interpreter interpreter, List<Object> arguments);
-    default BleepCallable bind(BleepInstance instance) {
-        Environment environment = new Environment(Interpreter.get().globals);
+    default BleepCallable bind(BleepInstance instance, Interpreter interpreter) {
+        Environment environment = new Environment(interpreter.globals);
         environment.define("this", instance);
         return this;
     }

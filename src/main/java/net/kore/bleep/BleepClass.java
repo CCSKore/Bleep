@@ -87,10 +87,10 @@ public class BleepClass implements BleepCallable {
 
     @Override
     public Object call(Interpreter interpreter, List<Object> arguments) {
-        BleepInstance instance = new BleepInstance(this);
+        BleepInstance instance = new BleepInstance(this, interpreter);
         BleepCallable initializer = findMethod("init");
         if (initializer instanceof BleepFunction bleepFunction) {
-            bleepFunction.bind(instance).call(interpreter, arguments);
+            bleepFunction.bind(instance, interpreter).call(interpreter, arguments);
         }
 
         return instance;

@@ -8,6 +8,8 @@ public class Parser {
     private static class ParseError extends RuntimeException {}
 
     private final List<Token> tokens;
+    protected Token maybeErrorPoint;
+    protected Token lastToken;
     private int current = 0;
 
     protected Parser(List<Token> tokens) {
@@ -68,6 +70,7 @@ public class Parser {
         if (match(TokenType.IF)) return ifStatement();
         if (match(TokenType.RETURN)) return returnStatement();
         if (match(TokenType.WHILE)) return whileStatement();
+        if (match(TokenType.REPEAT)) return repeatStatement();
         if (match(TokenType.LEFT_BRACE)) return new Stmt.Block(block());
     
         return expressionStatement();
@@ -183,6 +186,16 @@ public class Parser {
         Stmt body = statement();
     
         return new Stmt.While(condition, body);
+    }
+
+    private Stmt repeatStatement() {
+        maybeErrorPoint = lastToken;
+        consume(TokenType.LEFT_PAREN, "Expect '(' after 'repeat'.");
+        Expr condition = expression();
+        consume(TokenType.RIGHT_PAREN, "Expect ')' after amount.");
+        Stmt body = statement();
+
+        return new Stmt.Repeat(condition, body, current);
     }
 
     private Stmt expressionStatement() {
@@ -438,7 +451,9 @@ public class Parser {
 
     //gist this gets the previous token
     private Token previous() {
-        return tokens.get(current - 1);
+        Token token = tokens.get(current - 1);
+        lastToken = token;
+        return token;
     }
 
     //gist this reports errors
